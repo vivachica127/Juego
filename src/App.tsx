@@ -315,7 +315,7 @@ function IntroScreen({ onStart, total }: { onStart: () => void; total: number })
         <div className="mx-auto mt-8 grid max-w-lg grid-cols-1 gap-3 text-left sm:grid-cols-3">
           {[
             { icon: "🧭", t: "Explora", d: "Orbita y acércate a cada organelo en 3D" },
-            { icon: "📍", t: "Checkpoints", d: `Visita las ${total} partes de la célula` },
+            { icon: "📍", t: "Checkpoints", d: "Visita las 14 partes de la célula" },
             { icon: "🎯", t: "Aprende", d: "Responde preguntas y suma puntos" },
           ].map((c) => (
             <div
