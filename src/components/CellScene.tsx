@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars, Float, Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -12,13 +12,19 @@ type Props = {
   onSelect: (o: Organelle) => void;
 };
 
+type ControlsImpl = React.ElementRef<typeof OrbitControls>;
+
 function CameraRig({ target }: { target: [number, number, number] | null }) {
   const { camera } = useThree();
-  const controls = useRef<any>(null);
-  const desiredPos = useRef(new THREE.Vector3(0, 2, 16));
+  const controls = useRef<ControlsImpl | null>(null);
+  // Only animate the camera while a fly-to transition is in progress.
+  // Once it finishes (or the user grabs the scene), OrbitControls owns the camera.
+  const animating = useRef(true);
+  const desiredPos = useRef(new THREE.Vector3(0, 2.5, 16));
   const desiredTarget = useRef(new THREE.Vector3(0, 1, 0));
 
-  useFrame(() => {
+  // (Re)start the fly-to transition whenever the selection changes.
+  useEffect(() => {
     if (target) {
       const t = new THREE.Vector3(...target);
       desiredTarget.current.copy(t);
@@ -28,11 +34,25 @@ function CameraRig({ target }: { target: [number, number, number] | null }) {
       desiredTarget.current.set(0, 1, 0);
       desiredPos.current.set(0, 2.5, 16);
     }
-    camera.position.lerp(desiredPos.current, 0.05);
-    if (controls.current) {
-      controls.current.target.lerp(desiredTarget.current, 0.05);
-      controls.current.update();
+    animating.current = true;
+  }, [target]);
+
+  useFrame(() => {
+    if (animating.current) {
+      camera.position.lerp(desiredPos.current, 0.06);
+      if (controls.current) {
+        controls.current.target.lerp(desiredTarget.current, 0.08);
+      }
+      const posClose =
+        camera.position.distanceTo(desiredPos.current) < 0.05;
+      const targetClose =
+        !controls.current ||
+        controls.current.target.distanceTo(desiredTarget.current) < 0.05;
+      if (posClose && targetClose) {
+        animating.current = false;
+      }
     }
+    controls.current?.update();
   });
 
   return (
@@ -42,6 +62,10 @@ function CameraRig({ target }: { target: [number, number, number] | null }) {
       minDistance={3}
       maxDistance={26}
       enableDamping
+      onStart={() => {
+        // Let the user take over as soon as they interact with the scene.
+        animating.current = false;
+      }}
     />
   );
 }
@@ -57,8 +81,14 @@ function Checkpoint({
   done: boolean;
   onSelect: (o: Organelle) => void;
 }) {
-  const hover = useRef(false);
   const ring = useRef<THREE.Mesh>(null);
+
+  useEffect(() => {
+    // Make sure the cursor never gets stuck as a pointer.
+    return () => {
+      document.body.style.cursor = "auto";
+    };
+  }, []);
 
   useFrame((state) => {
     if (ring.current) {
@@ -78,11 +108,9 @@ function Checkpoint({
           }}
           onPointerOver={(e) => {
             e.stopPropagation();
-            hover.current = true;
             document.body.style.cursor = "pointer";
           }}
           onPointerOut={() => {
-            hover.current = false;
             document.body.style.cursor = "auto";
           }}
         >
